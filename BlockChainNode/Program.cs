@@ -1,6 +1,6 @@
 ﻿using System;
-using System.Configuration;
 using System.Collections.Generic;
+using System.Configuration;
 using BlockChainNode.Modules;
 using BlockChainNode.Net;
 using Nancy.Hosting.Self;
@@ -12,16 +12,15 @@ namespace BlockChainNode
     {
         public static void Main()
         {
-
-
             var hostUri = new Uri(ConfigurationManager.AppSettings["host"]);
 
-            CommunicationModule.NodeSet = new SortedSet<string> {hostUri.ToString()};
+            CommunicationModule.NodeSet = new HashSet<string> {hostUri.ToString()};
             try
             {
-                var hosts = NodeBalance.RegisterThisNode(ConfigurationManager.AppSettings["target"], hostUri.ToString());
-                CommunicationModule.NodeSet =
-                    JsonConvert.DeserializeObject<SortedSet<string>>(hosts);
+                var hosts =
+                    NodeBalance.RegisterThisNode(ConfigurationManager.AppSettings["target"],
+                                                 hostUri.ToString());
+                CommunicationModule.NodeSet = JsonConvert.DeserializeObject<HashSet<string>>(hosts);
             }
             catch (ApplicationException exc)
             {

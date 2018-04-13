@@ -19,20 +19,24 @@ namespace BlockChainNode.Modules
 
         public JsonResponse GetChain()
         {
-            var resp = new JsonResponse(Machine.Chain, new DefaultJsonSerializer());
+            var resp = new JsonResponse(Machine.Chain, new DefaultJsonSerializer())
+            {
+                StatusCode = HttpStatusCode.OK
+            };
             return resp;
         }
 
         public JsonResponse GetLastBlock()
         {
-            var resp = new JsonResponse(Machine.LastBlock, new DefaultJsonSerializer());
+            var resp = new JsonResponse(Machine.LastBlock, new DefaultJsonSerializer())
+            {
+                StatusCode = HttpStatusCode.OK
+            };
             return resp;
         }
 
-        public Response PostNewTransaction()
+        public JsonResponse PostNewTransaction()
         {
-            var resp = new Response();
-
             var transaction = this.Bind<Transaction>();
             var failedValidation = false;
             var validationErrors = new List<string>();
@@ -57,16 +61,20 @@ namespace BlockChainNode.Modules
 
             if (failedValidation)
             {
-                resp.ReasonPhrase = string.Join("\r\n", validationErrors);
-                resp.StatusCode = HttpStatusCode.BadRequest;
-                return resp;
+                return new JsonResponse(null, new DefaultJsonSerializer())
+                {
+                    ReasonPhrase = string.Join("\r\n", validationErrors),
+                    StatusCode = HttpStatusCode.BadRequest
+                };
             }
 
             var blocknum = Machine.AddNewTransaction(transaction);
 
-            resp.ReasonPhrase = $"Adding transaction on block {blocknum}";
-            resp.StatusCode = HttpStatusCode.Created;
-            return resp;
+            return new JsonResponse(null, new DefaultJsonSerializer())
+            {
+                ReasonPhrase = $"Adding transaction on block {blocknum}",
+                StatusCode = HttpStatusCode.OK
+            };
         }
     }
 }
