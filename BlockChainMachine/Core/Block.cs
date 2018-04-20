@@ -8,9 +8,24 @@ namespace BlockChainMachine.Core
     public struct Block
     {
         public int Index;
-        public List<Transaction> Transactions;
+        public List<ITransaction> Transactions;
         public string PreviousHash;
         public string TimeStamp;
+        public bool IsValid => ValidBlock();
+
+        private bool ValidBlock()
+        {
+            foreach (var transaction in Transactions)
+            {
+                // TODO Signature checks
+                if (transaction.Signature == null)
+                {
+                    return false;
+                }
+            }
+
+            return true;
+        }
 
         public override string ToString()
         {

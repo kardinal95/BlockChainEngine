@@ -8,25 +8,54 @@ namespace BlockChainMachine.Core
 {
     public class BlockChain
     {
-        public List<Block> Chain { get; }
-        private List<Transaction> currentTransactions;
+        public List<Block> Chain { get; private set; }
+        private List<ITransaction> currentTransactions;
         public Block LastBlock => Chain.Last();
         public bool Pending => currentTransactions.Count != 0;
+        public bool HaveValidChain => ValidChain(Chain);
 
         public BlockChain()
         {
             Chain = new List<Block>();
-            currentTransactions = new List<Transaction>();
+            currentTransactions = new List<ITransaction>();
             AddNewBlock("genesis");
         }
 
-        public int AddNewTransaction(string pollId, string optionId, string userHash)
+        public bool ValidChain(List<Block> chain)
         {
-            var trans = new Transaction {PollId = pollId, OptionId = optionId, UserHash = userHash};
-            return AddNewTransaction(trans);
+            // Проверяем наличие блоков в целом и генезис-блока
+            if (chain.Count < 1 || chain[0].PreviousHash != "genesis")
+            {
+                return false;
+            }
+
+            for (var current = 1; current < chain.Count; current++)
+            {
+                if (chain[current].Index != current + 1 ||
+                    chain[current].PreviousHash != Hash(chain[current - 1]) ||
+                    !chain[current].IsValid)
+                {
+                    return false;
+                }
+            }
+
+            return true;
         }
 
-        public int AddNewTransaction(Transaction trans)
+        public void RebalanceWith(List<Block> chain)
+        {
+            if (Chain.Count >= chain.Count)
+            {
+                return;
+            }
+
+            if (ValidChain(chain))
+            {
+                Chain = chain;
+            }
+        }
+
+        public int AddNewTransaction(ITransaction trans)
         {
             currentTransactions.Add(trans);
 
@@ -54,7 +83,7 @@ namespace BlockChainMachine.Core
                 TimeStamp = Timestamp(DateTime.Now)
             };
 
-            currentTransactions = new List<Transaction>();
+            currentTransactions = new List<ITransaction>();
             Chain.Add(block);
         }
 

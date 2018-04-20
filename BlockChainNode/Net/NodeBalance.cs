@@ -1,44 +1,72 @@
 ﻿using System;
-using System.IO;
+using System.Collections.Generic;
 using System.Net;
-using Newtonsoft.Json.Linq;
+using BlockChainMachine.Core;
+using BlockChainNode.Modules;
+using Newtonsoft.Json;
 
 namespace BlockChainNode.Net
 {
     public static class NodeBalance
     {
-        public static string RegisterThisNode(string targetIp, string nodeIp)
+        public static HashSet<string> NodeSet;
+
+        public static void PerformOnAllNodes(Action<string> act)
         {
-            var req = (HttpWebRequest) WebRequest.Create($"{targetIp}/comm/register");
-            req.Method = "POST";
-            req.ContentType = "text/json";
-
-            using (var streamWriter = new StreamWriter(req.GetRequestStream()))
+            foreach (var node in NodeSet)
             {
-                var json = new JObject(new JProperty("host", nodeIp));
-                streamWriter.Write(json);
+                if (!NodeOnline(node))
+                {
+                    NodeSet.Remove(node);
+                }
+                else
+                {
+                    act.Invoke(node);
+                }
             }
+        }
 
-            var resp = (HttpWebResponse) req.GetResponse();
-            if (resp.StatusCode != HttpStatusCode.OK)
+        public static string RegisterThisNode(string node, string target)
+        {
+            var parameters = new Dictionary<string, string> {{"host", target}};
+            var response = Common.NewJsonPost($"{node}/comm/register", parameters);
+            if (response.StatusCode != HttpStatusCode.OK)
             {
                 throw new ApplicationException("Cannot connect with node network!");
             }
 
-            var resStream = resp.GetResponseStream();
-            var reader = new StreamReader(resStream ?? throw new InvalidOperationException());
-            var respBody = reader.ReadToEnd();
-            return respBody;
+            return Common.GetJsonResponseBody(response);
         }
 
-        public static bool NodeOnline(string host)
+        public static void RebalanceNode(string node)
         {
-            var req = (HttpWebRequest) WebRequest.Create($"{host}/comm/info");
-            req.Method = "GET";
-            req.ContentType = "text/json";
+            var chain = GetNodeChain(node);
+            OperationModule.Machine.RebalanceWith(chain);
+        }
 
-            var resp = (HttpWebResponse) req.GetResponse();
-            return resp.StatusCode == HttpStatusCode.OK;
+        public static bool NodeOnline(string node)
+        {
+            var response = Common.NewJsonGet($"{node}/comm/info");
+            return response.StatusCode == HttpStatusCode.OK;
+        }
+
+        public static void SyncNode(string node)
+        {
+            var parameters = new Dictionary<string, string>();
+            Common.NewJsonPost($"{node}/comm/sync", parameters);
+        }
+
+        public static List<Block> GetNodeChain(string node)
+        {
+            var response = Common.NewJsonGet($"{node}/bc/chain");
+            if (response.StatusCode != HttpStatusCode.OK)
+            {
+                throw new ApplicationException("Node did not return correct information");
+            }
+
+            var json = Common.GetJsonResponseBody(response);
+            return JsonConvert.DeserializeObject<List<Block>>(
+                json, new JsonSerializerSettings {TypeNameHandling = TypeNameHandling.All});
         }
     }
 }

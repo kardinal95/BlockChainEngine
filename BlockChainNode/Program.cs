@@ -1,7 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Configuration;
-using BlockChainNode.Modules;
 using BlockChainNode.Net;
 using Nancy.Hosting.Self;
 using Newtonsoft.Json;
@@ -14,13 +13,14 @@ namespace BlockChainNode
         {
             var hostUri = new Uri(ConfigurationManager.AppSettings["host"]);
 
-            CommunicationModule.NodeSet = new HashSet<string> {hostUri.ToString()};
+            NodeBalance.NodeSet = new HashSet<string> {hostUri.ToString()};
             try
             {
                 var hosts =
                     NodeBalance.RegisterThisNode(ConfigurationManager.AppSettings["target"],
                                                  hostUri.ToString());
-                CommunicationModule.NodeSet = JsonConvert.DeserializeObject<HashSet<string>>(hosts);
+                NodeBalance.NodeSet = JsonConvert.DeserializeObject<HashSet<string>>(hosts);
+                NodeBalance.SyncNode(ConfigurationManager.AppSettings["host"]);
             }
             catch (ApplicationException exc)
             {
