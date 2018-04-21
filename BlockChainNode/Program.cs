@@ -67,18 +67,20 @@ namespace BlockChainNode
             NodeBalance.SyncNode(ConfigurationManager.AppSettings["host"]);
             Logger.Log.Debug($"Успешно! В цепи: {OperationModule.Machine.Chain.Count} блоков.");
 
-            Logger.Log.Info("Узел запущен. Для остановки введите exit или quit.");
+            Logger.Log.Info("Узел запущен. Нажмите ESC для остановки.");
 
-            while (running is true)
+            while (true)
             {
-                var input = Console.ReadLine();
-                if (input == "exit" || input == "quit")
+                if (Console.KeyAvailable && Console.ReadKey(true).Key == ConsoleKey.Escape)
                 {
-                    running = false;
+                    break;
                 }
             }
 
+            Logger.Log.Info("Узел останавливается...");
             host.Stop();
+            Logger.Log.Info("Узел остановлен. Нажмите любую клавишу для выхода");
+            Console.ReadKey(true);
         }
     }
 }
