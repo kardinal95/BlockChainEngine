@@ -26,7 +26,7 @@ namespace BlockChainNode.Net
             }
         }
 
-        public static string RegisterThisNode(string node, string target)
+        public static string RegisterLocalAtNode(string node, string target)
         {
             var parameters = new Dictionary<string, string> {{"host", target}};
             var response = Common.NewJsonPost($"{node}/comm/register", parameters);
