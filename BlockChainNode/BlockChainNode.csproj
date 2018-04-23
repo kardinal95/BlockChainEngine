@@ -40,6 +40,8 @@
   </ItemGroup>
   <ItemGroup>
     <Compile Include="Lib\Logging\Logger.cs" />
+    <Compile Include="Lib\Net\Common.cs" />
+    <Compile Include="Lib\Net\NodeResponse.cs" />
     <Compile Include="Modules\CommunicationModule.cs" />
     <Compile Include="Modules\OperationModule.cs" />
     <Compile Include="Net\Common.cs" />
