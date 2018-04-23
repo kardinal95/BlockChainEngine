@@ -4,6 +4,7 @@ using System.Configuration;
 using BlockChainNode.Lib.Logging;
 using BlockChainNode.Modules;
 using BlockChainNode.Net;
+using Nancy;
 using Nancy.Hosting.Self;
 using Newtonsoft.Json;
 
@@ -14,7 +15,6 @@ namespace BlockChainNode
         public static void Main()
         {
             Console.OutputEncoding = System.Text.Encoding.UTF8;
-
             Uri localUri = null;
 
             Logger.Init();
@@ -58,8 +58,11 @@ namespace BlockChainNode
 
             Logger.Log.Info("Настройка завершена.");
 
-            var host = new NancyHost(localUri);
-            var running = true;
+            var hostConfigs = new HostConfiguration()
+            {
+                UrlReservations = new UrlReservations() { CreateAutomatically = true }
+            };
+            var host = new NancyHost(localUri, new DefaultNancyBootstrapper(), hostConfigs);
 
             host.Start();
 
