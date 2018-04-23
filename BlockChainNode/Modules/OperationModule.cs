@@ -1,5 +1,6 @@
 ﻿using System.Collections.Generic;
 using BlockChainMachine.Core;
+using BlockChainNode.Lib.Net;
 using BlockChainNode.Net;
 using BlockChainNode.ScaleVote;
 using Nancy;
@@ -7,83 +8,117 @@ using Nancy.ModelBinding;
 using Nancy.Responses;
 using Nancy.Serialization.JsonNet;
 using Newtonsoft.Json;
+using Common = BlockChainNode.Lib.Net.Common;
 
 namespace BlockChainNode.Modules
 {
     public class OperationModule : NancyModule
     {
-        public static BlockChain Machine = new BlockChain();
+        public static readonly BlockChain Machine = new BlockChain();
+
+        private static readonly JsonNetSerializer Serializer =
+            new JsonNetSerializer(new JsonSerializer {TypeNameHandling = TypeNameHandling.All});
 
         public OperationModule() : base("/bc")
         {
             Get["/lastblock"] = parameters => GetLastBlock();
             Get["/chain"] = parameters => GetChain();
-            Post["/newtrans"] = parameters => PostNewTransaction<VoteTransaction>();
+            Post["/newvote"] = parameters => PostNewTransaction<VoteTransaction>();
         }
 
-        public JsonResponse GetChain()
+        private static JsonResponse GetChain()
         {
-            var resp = new JsonResponse(Machine.Chain,
-                                        new JsonNetSerializer(new JsonSerializer
-                                        {
-                                            TypeNameHandling = TypeNameHandling.All
-                                        })) {StatusCode = HttpStatusCode.OK};
-            return resp;
-        }
-
-        public JsonResponse GetLastBlock()
-        {
-            var resp = new JsonResponse(Machine.LastBlock, new JsonNetSerializer())
+            var nodeResponse = new NodeResponse
             {
-                StatusCode = HttpStatusCode.OK
+                Host = Common.HostName,
+                ResponseString = $"Chain of length {Machine.Chain.Count} provided",
+                HttpCode = HttpStatusCode.OK,
+                DataRows = new Dictionary<string, string>
+                {
+                    {"Chain", JsonConvert.SerializeObject(Machine.Chain)}
+                }
             };
-            return resp;
+
+            return new JsonResponse(nodeResponse, Serializer)
+            {
+                StatusCode = HttpStatusCode.OK,
+                ReasonPhrase = "Successful"
+            };
         }
 
-        public JsonResponse PostNewTransaction<T>()
+        private static JsonResponse GetLastBlock()
+        {
+            var nodeResponse = new NodeResponse
+            {
+                Host = Common.HostName,
+                ResponseString = "Last block returned",
+                HttpCode = HttpStatusCode.OK,
+                DataRows = new Dictionary<string, string>
+                {
+                    {"Block", JsonConvert.SerializeObject(Machine.LastBlock)}
+                }
+            };
+
+            return new JsonResponse(nodeResponse, Serializer)
+            {
+                StatusCode = HttpStatusCode.OK,
+                ReasonPhrase = "Successful"
+            };
+        }
+
+        private JsonResponse PostNewTransaction<T>()
             where T : ITransaction
         {
+            var nodeResponse = new NodeResponse
+            {
+                Host = Common.HostName,
+                DataRows = new Dictionary<string, string>()
+            };
+
             var transaction = this.Bind<T>();
-            var failedValidation = false;
             var validationErrors = new List<string>();
 
             if (!transaction.HasValidData)
             {
-                failedValidation = true;
                 validationErrors.Add("Некорректные данные транзакции!");
             }
 
             if (string.IsNullOrEmpty(transaction.UserHash))
             {
-                failedValidation = true;
                 validationErrors.Add("Не передан хэш пользователя!");
             }
 
             if (transaction.Signature == null)
             {
-                failedValidation = true;
                 validationErrors.Add("Не передана подпись!");
             }
 
-            if (failedValidation)
+            if (validationErrors.Count != 0)
             {
-                return new JsonResponse(null, new JsonNetSerializer())
+                nodeResponse.HttpCode = HttpStatusCode.BadRequest;
+                nodeResponse.ResponseString = string.Join("\r\n", validationErrors);
+
+                return new JsonResponse(nodeResponse, Serializer)
                 {
-                    ReasonPhrase = string.Join("\r\n", validationErrors),
-                    StatusCode = HttpStatusCode.BadRequest
+                    StatusCode = HttpStatusCode.BadRequest,
+                    ReasonPhrase = "Errors found"
                 };
             }
 
-            var blocknum = Machine.AddNewTransaction(transaction);
+            // TODO Correct sync of transactions
+            Machine.AddNewTransaction(transaction);
             if (!Machine.Pending)
             {
                 NodeBalance.PerformOnAllNodes(NodeBalance.SyncNode);
             }
 
-            return new JsonResponse(null, new JsonNetSerializer())
+            nodeResponse.HttpCode = HttpStatusCode.OK;
+            nodeResponse.ResponseString = "Added new transaction";
+
+            return new JsonResponse(nodeResponse, Serializer)
             {
-                ReasonPhrase = $"Adding transaction on block {blocknum}",
-                StatusCode = HttpStatusCode.OK
+                StatusCode = HttpStatusCode.OK,
+                ReasonPhrase = "Successful"
             };
         }
     }
