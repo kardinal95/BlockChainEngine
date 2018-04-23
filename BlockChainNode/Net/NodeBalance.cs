@@ -36,7 +36,10 @@ namespace BlockChainNode.Net
                 throw new ApplicationException("Cannot connect with node network!");
             }
 
-            return Common.GetJsonResponseBody(response);
+            var responseBody = Common.GetJsonResponseBody(response);
+            var nodeResponse = JsonConvert.DeserializeObject<NodeResponse>(responseBody);
+
+            return nodeResponse.DataRows["Nodes"];
         }
 
         public static void RebalanceNode(string node)
