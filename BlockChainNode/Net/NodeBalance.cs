@@ -2,6 +2,7 @@
 using System.Collections.Generic;
 using System.Net;
 using BlockChainMachine.Core;
+using BlockChainNode.Lib.Net;
 using BlockChainNode.Modules;
 using Newtonsoft.Json;
 
@@ -65,8 +66,9 @@ namespace BlockChainNode.Net
             }
 
             var json = Common.GetJsonResponseBody(response);
-            return JsonConvert.DeserializeObject<List<Block>>(
-                json, new JsonSerializerSettings {TypeNameHandling = TypeNameHandling.All});
+            var nodeResponse = JsonConvert.DeserializeObject<NodeResponse>(json);
+            var chain = JsonConvert.DeserializeObject<List<Block>>(nodeResponse.DataRows["Chain"]);
+            return chain;
         }
     }
 }
