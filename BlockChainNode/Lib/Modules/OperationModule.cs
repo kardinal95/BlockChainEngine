@@ -1,5 +1,6 @@
 ﻿using System.Collections.Generic;
 using BlockChainMachine.Core;
+using BlockChainNode.Lib.Logging;
 using BlockChainNode.Lib.Net;
 using BlockChainNode.Net;
 using BlockChainNode.ScaleVote;
@@ -10,7 +11,7 @@ using Nancy.Serialization.JsonNet;
 using Newtonsoft.Json;
 using Common = BlockChainNode.Lib.Net.Common;
 
-namespace BlockChainNode.Modules
+namespace BlockChainNode.Lib.Modules
 {
     public class OperationModule : NancyModule
     {
@@ -26,8 +27,10 @@ namespace BlockChainNode.Modules
             Post["/newvote"] = parameters => PostNewTransaction<VoteTransaction>();
         }
 
-        private static JsonResponse GetChain()
+        private JsonResponse GetChain()
         {
+            Logger.Log.Info(
+                $"Запрос на {Request.Url} от {Request.UserHostAddress} на получение данных о цепочке...");
             var nodeResponse = new NodeResponse
             {
                 Host = Common.HostName,
@@ -39,6 +42,7 @@ namespace BlockChainNode.Modules
                 }
             };
 
+            Logger.Log.Debug($"Возвращена цепочка длинной {Machine.Chain.Count}");
             return new JsonResponse(nodeResponse, Serializer)
             {
                 StatusCode = HttpStatusCode.OK,
@@ -46,8 +50,10 @@ namespace BlockChainNode.Modules
             };
         }
 
-        private static JsonResponse GetLastBlock()
+        private JsonResponse GetLastBlock()
         {
+            Logger.Log.Info(
+                $"Запрос на {Request.Url} от {Request.UserHostAddress} на получение последнего блока...");
             var nodeResponse = new NodeResponse
             {
                 Host = Common.HostName,
@@ -59,6 +65,7 @@ namespace BlockChainNode.Modules
                 }
             };
 
+            Logger.Log.Debug($"Возвращён блок №{Machine.LastBlock.Index}");
             return new JsonResponse(nodeResponse, Serializer)
             {
                 StatusCode = HttpStatusCode.OK,
@@ -78,6 +85,11 @@ namespace BlockChainNode.Modules
             var transaction = this.Bind<T>();
             var validationErrors = new List<string>();
 
+            Logger.Log.Info(
+                $"Запрос на {Request.Url} от {Request.UserHostAddress} на совершение транзакции:");
+            Logger.Log.Debug($"Data: {transaction.Data}\n" + $"UserHash: {transaction.UserHash}\n" +
+                             $"Signature: {transaction.Signature}");
+
             if (!transaction.HasValidData)
             {
                 validationErrors.Add("Некорректные данные транзакции!");
@@ -95,6 +107,9 @@ namespace BlockChainNode.Modules
 
             if (validationErrors.Count != 0)
             {
+                Logger.Log.Error($"Провести транзакцию не удалось!:\n" +
+                                 $"{string.Join("\r\n", validationErrors)}");
+
                 nodeResponse.HttpCode = HttpStatusCode.BadRequest;
                 nodeResponse.ResponseString = string.Join("\r\n", validationErrors);
 
@@ -115,6 +130,7 @@ namespace BlockChainNode.Modules
             nodeResponse.HttpCode = HttpStatusCode.OK;
             nodeResponse.ResponseString = "Added new transaction";
 
+            Logger.Log.Info("Транзакция проведена успешно");
             return new JsonResponse(nodeResponse, Serializer)
             {
                 StatusCode = HttpStatusCode.OK,

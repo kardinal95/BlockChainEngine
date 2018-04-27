@@ -2,8 +2,8 @@
 using System.Collections.Generic;
 using System.Net;
 using BlockChainMachine.Core;
+using BlockChainNode.Lib.Modules;
 using BlockChainNode.Lib.Net;
-using BlockChainNode.Modules;
 using Newtonsoft.Json;
 
 namespace BlockChainNode.Net

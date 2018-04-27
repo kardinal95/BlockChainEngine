@@ -2,7 +2,7 @@
 using System.Collections.Generic;
 using System.Configuration;
 using BlockChainNode.Lib.Logging;
-using BlockChainNode.Modules;
+using BlockChainNode.Lib.Modules;
 using BlockChainNode.Net;
 using Nancy;
 using Nancy.Hosting.Self;

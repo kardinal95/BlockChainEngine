@@ -43,7 +43,7 @@
     <Compile Include="Lib\Net\Common.cs" />
     <Compile Include="Lib\Net\NodeResponse.cs" />
     <Compile Include="Lib\Modules\CommunicationModule.cs" />
-    <Compile Include="Modules\OperationModule.cs" />
+    <Compile Include="Lib\Modules\OperationModule.cs" />
     <Compile Include="Net\Common.cs" />
     <Compile Include="Net\NodeBalance.cs" />
     <Compile Include="Program.cs" />
@@ -76,6 +76,8 @@
       <Name>BlockChainMachine</Name>
     </ProjectReference>
   </ItemGroup>
-  <ItemGroup />
+  <ItemGroup>
+    <Folder Include="Modules\" />
+  </ItemGroup>
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
 </Project>

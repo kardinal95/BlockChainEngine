@@ -2,7 +2,6 @@
 using System.Configuration;
 using BlockChainNode.Lib.Logging;
 using BlockChainNode.Lib.Net;
-using BlockChainNode.Modules;
 using BlockChainNode.Net;
 using Nancy;
 using Nancy.Extensions;
