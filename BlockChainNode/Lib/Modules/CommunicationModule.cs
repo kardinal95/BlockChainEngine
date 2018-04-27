@@ -1,5 +1,8 @@
 ﻿using System.Collections.Generic;
+using System.Configuration;
+using BlockChainNode.Lib.Logging;
 using BlockChainNode.Lib.Net;
+using BlockChainNode.Modules;
 using BlockChainNode.Net;
 using Nancy;
 using Nancy.Extensions;
@@ -9,7 +12,7 @@ using Newtonsoft.Json;
 using Newtonsoft.Json.Linq;
 using Common = BlockChainNode.Lib.Net.Common;
 
-namespace BlockChainNode.Modules
+namespace BlockChainNode.Lib.Modules
 {
     // ReSharper disable once UnusedMember.Global
     public class CommunicationModule : NancyModule
@@ -23,8 +26,11 @@ namespace BlockChainNode.Modules
             Post["/sync"] = parameters => Sync();
         }
 
-        private static JsonResponse Sync()
+        private JsonResponse Sync()
         {
+            Logger.Log.Info($"Запрос на {Request.Url} от {Request.UserHostAddress}" +
+                            $"на синхронизацию узлов...");
+
             NodeBalance.PerformOnAllNodes(NodeBalance.RebalanceNode);
 
             var nodeResponse = new NodeResponse
@@ -35,6 +41,7 @@ namespace BlockChainNode.Modules
                 DataRows = new Dictionary<string, string>()
             };
 
+            Logger.Log.Debug($"Возвращено число узлов: {NodeBalance.NodeSet.Count}");
             return new JsonResponse(nodeResponse, Serializer)
             {
                 StatusCode = HttpStatusCode.OK,
@@ -42,8 +49,13 @@ namespace BlockChainNode.Modules
             };
         }
 
-        private static JsonResponse GetNodeInfo()
+        private JsonResponse GetNodeInfo()
         {
+            Logger.Log.Info($"Запрос на {Request.Url} от {Request.UserHostAddress} " +
+                            $"на получение информации об узлах");
+            Logger.Log.Debug($"Адрес хоста: {ConfigurationManager.AppSettings["host"]}\n" +
+                             $"Количество узлов: {NodeBalance.NodeSet.Count}");
+
             var nodeResponse = new NodeResponse
             {
                 Host = Common.HostName,
@@ -73,6 +85,9 @@ namespace BlockChainNode.Modules
                 Host = Common.HostName,
                 DataRows = new Dictionary<string, string>()
             };
+
+            Logger.Log.Info($"Запрос на {Request.Url} от {Request.UserHostAddress} " +
+                            $"на регистрацию нового узла");
 
             var jsonString = Request.Body.AsString();
             JObject jsonObject;
@@ -109,6 +124,10 @@ namespace BlockChainNode.Modules
             nodeResponse.HttpCode = HttpStatusCode.OK;
             nodeResponse.ResponseString = "New host added, full host list returned";
             nodeResponse.DataRows.Add("Nodes", JsonConvert.SerializeObject(NodeBalance.NodeSet));
+
+            Logger.Log.Info("Добавлен новый хост");
+            Logger.Log.Debug($"Адрес хоста: {host}");
+            Logger.Log.Debug($"Количество узлов: {NodeBalance.NodeSet.Count}");
 
             return new JsonResponse(nodeResponse, Serializer)
             {
