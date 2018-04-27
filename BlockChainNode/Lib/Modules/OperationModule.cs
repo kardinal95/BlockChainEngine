@@ -2,8 +2,7 @@
 using BlockChainMachine.Core;
 using BlockChainNode.Lib.Logging;
 using BlockChainNode.Lib.Net;
-using BlockChainNode.Net;
-using BlockChainNode.ScaleVote;
+using BlockChainNode.Lib.ScaleVote;
 using Nancy;
 using Nancy.ModelBinding;
 using Nancy.Responses;

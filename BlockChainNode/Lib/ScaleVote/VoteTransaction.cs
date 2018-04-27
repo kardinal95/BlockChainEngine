@@ -1,6 +1,6 @@
 ﻿using BlockChainMachine.Core;
 
-namespace BlockChainNode.ScaleVote
+namespace BlockChainNode.Lib.ScaleVote
 {
     class VoteTransaction : ITransaction
     {

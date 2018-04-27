@@ -3,7 +3,7 @@ using System.Collections.Generic;
 using System.Configuration;
 using BlockChainNode.Lib.Logging;
 using BlockChainNode.Lib.Modules;
-using BlockChainNode.Net;
+using BlockChainNode.Lib.Net;
 using Nancy;
 using Nancy.Hosting.Self;
 using Newtonsoft.Json;

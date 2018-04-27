@@ -4,14 +4,14 @@ using System.IO;
 using System.Net;
 using Newtonsoft.Json.Linq;
 
-namespace BlockChainNode.Net
+namespace BlockChainNode.Lib.Net
 {
-    public static class Common
+    public static class WebRequest
     {
         public static HttpWebResponse NewJsonPost(string target,
                                                   Dictionary<string, string> parameters)
         {
-            var req = (HttpWebRequest) WebRequest.Create(target);
+            var req = (HttpWebRequest) System.Net.WebRequest.Create(target);
             req.Method = "POST";
             req.ContentType = "text/json";
 
@@ -30,7 +30,7 @@ namespace BlockChainNode.Net
 
         public static HttpWebResponse NewJsonGet(string target)
         {
-            var req = (HttpWebRequest) WebRequest.Create(target);
+            var req = (HttpWebRequest) System.Net.WebRequest.Create(target);
             req.Method = "GET";
             req.ContentType = "text/json";
 

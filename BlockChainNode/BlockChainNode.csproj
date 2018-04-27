@@ -44,11 +44,11 @@
     <Compile Include="Lib\Net\NodeResponse.cs" />
     <Compile Include="Lib\Modules\CommunicationModule.cs" />
     <Compile Include="Lib\Modules\OperationModule.cs" />
-    <Compile Include="Net\Common.cs" />
-    <Compile Include="Net\NodeBalance.cs" />
+    <Compile Include="Lib\Net\WebRequest.cs" />
+    <Compile Include="Lib\Net\NodeBalance.cs" />
     <Compile Include="Program.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
-    <Compile Include="ScaleVote\VoteTransaction.cs" />
+    <Compile Include="Lib\ScaleVote\VoteTransaction.cs" />
   </ItemGroup>
   <ItemGroup>
     <Reference Include="log4net, Version=2.0.8.0, Culture=neutral, PublicKeyToken=669e0ddf0bb1aa2a, processorArchitecture=MSIL">
@@ -76,8 +76,6 @@
       <Name>BlockChainMachine</Name>
     </ProjectReference>
   </ItemGroup>
-  <ItemGroup>
-    <Folder Include="Modules\" />
-  </ItemGroup>
+  <ItemGroup />
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
 </Project>
