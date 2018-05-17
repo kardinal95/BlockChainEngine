@@ -42,7 +42,7 @@
   <ItemGroup>
     <Compile Include="Core\Block.cs" />
     <Compile Include="Core\Blockchain.cs" />
-    <Compile Include="Core\ITransaction.cs" />
+    <Compile Include="Core\Transaction.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
   </ItemGroup>
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />

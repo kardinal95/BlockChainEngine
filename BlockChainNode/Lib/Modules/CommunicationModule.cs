@@ -1,5 +1,5 @@
-﻿using System.Collections.Generic;
-using System.Configuration;
+﻿using System;
+using System.Collections.Generic;
 using BlockChainNode.Lib.Logging;
 using BlockChainNode.Lib.Net;
 using Nancy;
@@ -8,7 +8,6 @@ using Nancy.Responses;
 using Nancy.Serialization.JsonNet;
 using Newtonsoft.Json;
 using Newtonsoft.Json.Linq;
-using Common = BlockChainNode.Lib.Net.Common;
 
 namespace BlockChainNode.Lib.Modules
 {
@@ -19,73 +18,48 @@ namespace BlockChainNode.Lib.Modules
 
         public CommunicationModule() : base("/comm")
         {
-            Get["/info"] = parameters => GetNodeInfo();
-            Post["/register"] = parameters => RegisterNewNode();
-            Post["/sync"] = parameters => Sync();
+            Get["/info"] = parameters => ParseRequest(GetNodeInfo);
+            Post["/register"] = parameters => ParseRequest(RegisterNewNode);
         }
 
-        private JsonResponse Sync()
+        private JsonResponse ParseRequest(Func<NodeResponse> func)
         {
-            Logger.Log.Info($"Запрос на {Request.Url} от {Request.UserHostAddress}" +
-                            $"на синхронизацию узлов...");
+            Logger.Log.Info($"Получен {Request.Method} запрос " +
+                            $"на {Request.Url} от {Request.UserHostAddress}");
 
-            NodeBalance.PerformOnAllNodes(NodeBalance.RebalanceNode);
+            var nodeResponse = func.Invoke();
+            nodeResponse.Host = Common.HostName;
 
-            var nodeResponse = new NodeResponse
-            {
-                Host = Common.HostName,
-                ResponseString = "Sync completed",
-                HttpCode = HttpStatusCode.OK,
-                DataRows = new Dictionary<string, string>()
-            };
+            Logger.Log.Debug(nodeResponse);
 
-            Logger.Log.Debug($"Возвращено число узлов: {NodeBalance.NodeSet.Count}");
-            return new JsonResponse(nodeResponse, Serializer)
-            {
-                StatusCode = HttpStatusCode.OK,
-                ReasonPhrase = "Successfully synced"
-            };
+            return new JsonResponse(nodeResponse, Serializer) {StatusCode = nodeResponse.HttpCode};
         }
 
-        private JsonResponse GetNodeInfo()
+        private static NodeResponse GetNodeInfo()
         {
-            Logger.Log.Info($"Запрос на {Request.Url} от {Request.UserHostAddress} " +
-                            $"на получение информации об узлах");
-            Logger.Log.Debug($"Адрес хоста: {ConfigurationManager.AppSettings["host"]}\n" +
+            Logger.Log.Debug($"Адрес хоста: {Common.HostName}\n" +
                              $"Количество узлов: {NodeBalance.NodeSet.Count}");
 
             var nodeResponse = new NodeResponse
             {
-                Host = Common.HostName,
-                ResponseString = "Node info returned",
                 HttpCode = HttpStatusCode.OK,
+                ResponseString = "Node info returned",
                 DataRows = new Dictionary<string, string>
                 {
-                    {"Host", Common.HostName},
-                    {"Chain Length", OperationModule.Machine.Chain.Count.ToString()},
-                    {"Visible Hosts", NodeBalance.NodeSet.Count.ToString()},
-                    {"Pending Transactions", OperationModule.Machine.Pending.ToString()}
+                    ["Host"] = Common.HostName,
+                    ["Chain Length"] = OperationModule.Machine.Chain.Count.ToString(),
+                    ["Visible Hosts"] = NodeBalance.NodeSet.Count.ToString(),
+                    ["Pending Transactions"] = OperationModule.Machine.Pending.ToString()
                 }
             };
 
-            return new JsonResponse(nodeResponse, Serializer)
-            {
-                StatusCode = HttpStatusCode.OK,
-                ReasonPhrase = "Node info returned"
-            };
+            return nodeResponse;
         }
 
-        private JsonResponse RegisterNewNode()
+        private NodeResponse RegisterNewNode()
         {
             // TODO Validation of host?
-            var nodeResponse = new NodeResponse
-            {
-                Host = Common.HostName,
-                DataRows = new Dictionary<string, string>()
-            };
-
-            Logger.Log.Info($"Запрос на {Request.Url} от {Request.UserHostAddress} " +
-                            $"на регистрацию нового узла");
+            var nodeResponse = new NodeResponse {DataRows = new Dictionary<string, string>()};
 
             var jsonString = Request.Body.AsString();
             JObject jsonObject;
@@ -98,11 +72,7 @@ namespace BlockChainNode.Lib.Modules
                 nodeResponse.HttpCode = HttpStatusCode.BadRequest;
                 nodeResponse.ResponseString = "Missing host parameter";
 
-                return new JsonResponse(nodeResponse, Serializer)
-                {
-                    StatusCode = HttpStatusCode.BadRequest,
-                    ReasonPhrase = "Missing parameters"
-                };
+                return nodeResponse;
             }
 
             var host = (string) jsonObject["host"];
@@ -111,11 +81,7 @@ namespace BlockChainNode.Lib.Modules
                 nodeResponse.HttpCode = HttpStatusCode.BadRequest;
                 nodeResponse.ResponseString = "No host provided";
 
-                return new JsonResponse(nodeResponse, Serializer)
-                {
-                    StatusCode = HttpStatusCode.BadRequest,
-                    ReasonPhrase = "Missing value"
-                };
+                return nodeResponse;
             }
 
             NodeBalance.NodeSet.Add(host);
@@ -123,15 +89,10 @@ namespace BlockChainNode.Lib.Modules
             nodeResponse.ResponseString = "New host added, full host list returned";
             nodeResponse.DataRows.Add("Nodes", JsonConvert.SerializeObject(NodeBalance.NodeSet));
 
-            Logger.Log.Info("Добавлен новый хост");
-            Logger.Log.Debug($"Адрес хоста: {host}");
-            Logger.Log.Debug($"Количество узлов: {NodeBalance.NodeSet.Count}");
+            Logger.Log.Info($"Добавлен новый хост {host}");
+            Logger.Log.Debug($"Новое количество узлов: {NodeBalance.NodeSet.Count}");
 
-            return new JsonResponse(nodeResponse, Serializer)
-            {
-                StatusCode = HttpStatusCode.OK,
-                ReasonPhrase = "Successfully added"
-            };
+            return nodeResponse;
         }
     }
 }

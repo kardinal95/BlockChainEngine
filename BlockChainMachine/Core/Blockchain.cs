@@ -1,78 +1,40 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Linq;
-using System.Security.Cryptography;
-using System.Text;
 
 namespace BlockChainMachine.Core
 {
     public class BlockChain
     {
         public List<Block> Chain { get; private set; }
-        private List<ITransaction> currentTransactions;
-        public Block LastBlock => Chain.Last();
+        private List<Transaction> currentTransactions;
         public bool Pending => currentTransactions.Count != 0;
-        public bool HaveValidChain => ValidChain(Chain);
+        public Block LastBlock => Chain.Last();
 
         public BlockChain()
         {
             Chain = new List<Block>();
-            currentTransactions = new List<ITransaction>();
-            AddNewBlock("genesis");
+            currentTransactions = new List<Transaction>();
+            CreateNewBlock("genesis");
         }
 
-        public bool ValidChain(List<Block> chain)
-        {
-            // Проверяем наличие блоков в целом и генезис-блока
-            if (chain.Count < 1 || chain[0].PreviousHash != "genesis")
-            {
-                return false;
-            }
-
-            for (var current = 1; current < chain.Count; current++)
-            {
-                if (chain[current].Index != current + 1 ||
-                    chain[current].PreviousHash != Hash(chain[current - 1]) ||
-                    !chain[current].IsValid)
-                {
-                    return false;
-                }
-            }
-
-            return true;
-        }
-
-        public void RebalanceWith(List<Block> chain)
-        {
-            if (Chain.Count >= chain.Count)
-            {
-                return;
-            }
-
-            if (ValidChain(chain))
-            {
-                Chain = chain;
-            }
-        }
-
-        public int AddNewTransaction(ITransaction trans)
+        public void AddNewTransaction(Transaction trans)
         {
             currentTransactions.Add(trans);
 
             if (currentTransactions.Count < 10)
             {
-                return LastBlock.Index + 1;
+                return;
             }
 
-            AddNewBlock();
-            return LastBlock.Index;
+            CreateNewBlock();
         }
 
-        public void AddNewBlock(string previousHash = null)
+        private void CreateNewBlock(string previousHash = null)
         {
             if (previousHash is null)
             {
-                previousHash = Hash(LastBlock);
+                previousHash = LastBlock.Hash;
             }
 
             var block = new Block
@@ -83,26 +45,46 @@ namespace BlockChainMachine.Core
                 TimeStamp = Timestamp(DateTime.Now)
             };
 
-            currentTransactions = new List<ITransaction>();
+            currentTransactions = new List<Transaction>();
             Chain.Add(block);
         }
 
-        public static string Hash(Block block)
+        public bool TryAddBlock(Block block)
         {
-            var hash = new StringBuilder();
-            var hashFunc = new SHA256Managed();
-            var crypt = hashFunc.ComputeHash(Encoding.UTF8.GetBytes(block.ToString()));
-            foreach (var item in crypt)
+            // IF !block.Valid
+            if (block.PreviousHash != LastBlock.Hash ||
+                block.Index != LastBlock.Index + 1)
             {
-                hash.Append(item.ToString("x2"));
+                return false;
             }
 
-            return hash.ToString();
+            Chain.Add(block);
+            return true;
         }
 
-        public static string Timestamp(DateTime value)
+        public void TryRebalance(List<Block> chain)
         {
-            return value.ToString("yyyyMMddHHmmssffff");
+            if (Chain.Count > chain.Count())
+            {
+                return;
+            }
+
+            for (var i = 1; i < chain.Count(); i++)
+            {
+                // !chain[i].Valid || 
+                if (chain[i].PreviousHash != chain[i - 1].Hash ||
+                    chain[i].Index != i + 1)
+                {
+                    return;
+                }
+            }
+
+            Chain = chain;
+        }
+
+        private static string Timestamp(DateTime value)
+        {
+            return value.ToString("yyyy\'-\'MM\'-\'dd HH\':\'mm\':\'ss\'Z\'");
         }
     }
 }

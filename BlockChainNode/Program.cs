@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Configuration;
+using System.Text;
 using BlockChainNode.Lib.Logging;
 using BlockChainNode.Lib.Modules;
 using BlockChainNode.Lib.Net;
@@ -14,7 +15,7 @@ namespace BlockChainNode
     {
         public static void Main()
         {
-            Console.OutputEncoding = System.Text.Encoding.UTF8;
+            Console.OutputEncoding = Encoding.UTF8;
             Uri localUri = null;
 
             Logger.Init();
@@ -40,7 +41,7 @@ namespace BlockChainNode
             {
                 Logger.Log.Debug($"Соединение с {ConfigurationManager.AppSettings["target"]}...");
                 var target = ConfigurationManager.AppSettings["target"];
-                var hosts = NodeBalance.RegisterLocalAtNode(target, localUri.ToString());
+                var hosts = NodeBalance.RegisterSelfAt(target);
                 NodeBalance.NodeSet = JsonConvert.DeserializeObject<HashSet<string>>(hosts);
                 Logger.Log.Debug($"Получено {NodeBalance.NodeSet.Count} узлов!");
             }
@@ -58,16 +59,16 @@ namespace BlockChainNode
 
             Logger.Log.Info("Настройка завершена.");
 
-            var hostConfigs = new HostConfiguration()
+            var hostConfigs = new HostConfiguration
             {
-                UrlReservations = new UrlReservations() { CreateAutomatically = true }
+                UrlReservations = new UrlReservations {CreateAutomatically = true}
             };
             var host = new NancyHost(localUri, new DefaultNancyBootstrapper(), hostConfigs);
 
             host.Start();
 
             Logger.Log.Debug("Синхронизация текущей цепочки блоков...");
-            NodeBalance.SyncNode(ConfigurationManager.AppSettings["host"]);
+            NodeBalance.RebalanceSelf();
             Logger.Log.Debug($"Успешно! В цепи: {OperationModule.Machine.Chain.Count} блоков.");
 
             Logger.Log.Info("Узел запущен. Нажмите ESC для остановки.");

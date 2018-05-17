@@ -11,24 +11,9 @@ namespace BlockChainNode.Lib.Net
     {
         public static HashSet<string> NodeSet;
 
-        public static void PerformOnAllNodes(Action<string> act)
+        public static string RegisterSelfAt(string node)
         {
-            foreach (var node in NodeSet)
-            {
-                if (!NodeOnline(node))
-                {
-                    NodeSet.Remove(node);
-                }
-                else
-                {
-                    act.Invoke(node);
-                }
-            }
-        }
-
-        public static string RegisterLocalAtNode(string node, string target)
-        {
-            var parameters = new Dictionary<string, string> {{"host", target}};
+            var parameters = new Dictionary<string, string> {{"host", Common.HostName}};
             var response = WebRequest.NewJsonPost($"{node}/comm/register", parameters);
             if (response.StatusCode != HttpStatusCode.OK)
             {
@@ -41,27 +26,90 @@ namespace BlockChainNode.Lib.Net
             return nodeResponse.DataRows["Nodes"];
         }
 
-        public static void RebalanceNode(string node)
+        public static void BroadcastNewBlock()
         {
-            var chain = GetNodeChain(node);
-            OperationModule.Machine.RebalanceWith(chain);
+            foreach (var node in NodeSet)
+            {
+                if (node == Common.HostName)
+                {
+                    continue;
+                }
+
+                if (!NodeOnline(node))
+                {
+                    NodeSet.Remove(node);
+                }
+                else
+                {
+                    RegisterSelfAt(node);
+                    SendNewBlock(node);
+                }
+            }
         }
 
-        public static bool NodeOnline(string node)
+        private static void SendNewBlock(string node)
         {
-            var response = WebRequest.NewJsonGet($"{node}/comm/info");
-            return response.StatusCode == HttpStatusCode.OK;
+            var parameters = new Dictionary<string, string>
+            {
+                {"Block", JsonConvert.SerializeObject(OperationModule.Machine.LastBlock)}
+            };
+            try
+            {
+                var response = WebRequest.NewJsonPost($"{node}/bc/newblock", parameters);
+            }
+            catch (WebException)
+            { }
         }
 
-        public static void SyncNode(string node)
+        private static void RebalanceSelfWith(string node)
         {
-            var parameters = new Dictionary<string, string>();
-            WebRequest.NewJsonPost($"{node}/comm/sync", parameters);
+            var block = GetResponseItem<Block>(node, "/bc/lastblock", "Block");
+            if (OperationModule.Machine.LastBlock.EqualTo(block))
+            {
+                return;
+            }
+
+            var chain = GetResponseItem<List<Block>>(node, "/bc/chain", "Chain");
+            OperationModule.Machine.TryRebalance(chain);
         }
 
-        public static List<Block> GetNodeChain(string node)
+        private static bool NodeOnline(string node)
         {
-            var response = WebRequest.NewJsonGet($"{node}/bc/chain");
+            try
+            {
+                var response = WebRequest.NewJsonGet($"{node}/comm/info");
+                return response.StatusCode == HttpStatusCode.OK;
+            }
+            catch (WebException)
+            {
+                return false;
+            }
+        }
+
+        public static void RebalanceSelf()
+        {
+            foreach (var node in NodeSet)
+            {
+                if (node == Common.HostName)
+                {
+                    continue;
+                }
+
+                if (!NodeOnline(node))
+                {
+                    NodeSet.Remove(node);
+                }
+                else
+                {
+                    RegisterSelfAt(node);
+                    RebalanceSelfWith(node);
+                }
+            }
+        }
+
+        private static T GetResponseItem<T>(string node, string uri, string row)
+        {
+            var response = WebRequest.NewJsonGet($"{node}{uri}");
             if (response.StatusCode != HttpStatusCode.OK)
             {
                 throw new ApplicationException("Node did not return correct information");
@@ -69,8 +117,8 @@ namespace BlockChainNode.Lib.Net
 
             var json = WebRequest.GetJsonResponseBody(response);
             var nodeResponse = JsonConvert.DeserializeObject<NodeResponse>(json);
-            var chain = JsonConvert.DeserializeObject<List<Block>>(nodeResponse.DataRows["Chain"]);
-            return chain;
+            var item = JsonConvert.DeserializeObject<T>(nodeResponse.DataRows[row]);
+            return item;
         }
     }
 }

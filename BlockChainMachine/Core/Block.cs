@@ -1,24 +1,28 @@
-﻿using System.Collections.Generic;
+﻿using System;
+using System.Collections.Generic;
+using System.IO;
+using System.Runtime.Serialization;
+using System.Runtime.Serialization.Formatters.Binary;
+using System.Security.Cryptography;
+using System.Text;
 
 namespace BlockChainMachine.Core
 {
-    /// <summary>
-    ///     Один блок целой цепи
-    /// </summary>
-    public struct Block
+    [Serializable]
+    public struct Block : ISerializable
     {
         public int Index;
-        public List<ITransaction> Transactions;
         public string PreviousHash;
         public string TimeStamp;
-        public bool IsValid => ValidBlock();
+        public List<Transaction> Transactions;
+        public bool Valid => Validate();
+        public string Hash => GetBlockHash();
 
-        private bool ValidBlock()
+        private bool Validate()
         {
             foreach (var transaction in Transactions)
             {
-                // TODO Signature checks
-                if (transaction.Signature == null)
+                if (!transaction.Valid)
                 {
                     return false;
                 }
@@ -27,10 +31,55 @@ namespace BlockChainMachine.Core
             return true;
         }
 
+        private string GetBlockHash()
+        {
+            var hash = new StringBuilder();
+            var hashFunc = new SHA256Managed();
+            var crypt = hashFunc.ComputeHash(GetBytes());
+            foreach (var item in crypt)
+            {
+                hash.Append(item.ToString("x2"));
+            }
+
+            return hash.ToString();
+        }
+
+        private byte[] GetBytes()
+        {
+            var formatter = new BinaryFormatter();
+            using (var stream = new MemoryStream())
+            {
+                formatter.Serialize(stream, this);
+                return stream.ToArray();
+            }
+        }
+
         public override string ToString()
         {
             return $"Block: No. {Index}, with {Transactions.Count} transactions.\n" +
                    $"Previous hash: {PreviousHash}, created on {TimeStamp}.";
+        }
+
+        public void GetObjectData(SerializationInfo info, StreamingContext context)
+        {
+            info.AddValue("Index", Index);
+            info.AddValue("Trans", Transactions);
+            info.AddValue("PreviousHash", PreviousHash);
+            info.AddValue("TimeStamp", TimeStamp);
+        }
+
+        // ReSharper disable once MemberCanBeProtected.Global
+        public Block(SerializationInfo info, StreamingContext context)
+        {
+            Index = (int) info.GetValue("Index", typeof(int));
+            Transactions = (List<Transaction>) info.GetValue("Trans", typeof(List<Transaction>));
+            PreviousHash = (string) info.GetValue("PreviousHash", typeof(string));
+            TimeStamp = (string) info.GetValue("TimeStamp", typeof(string));
+        }
+
+        public bool EqualTo(Block target)
+        {
+            return Hash == target.Hash;
         }
     }
 }

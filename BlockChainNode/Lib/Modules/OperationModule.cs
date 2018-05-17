@@ -1,14 +1,15 @@
-﻿using System.Collections.Generic;
+﻿using System;
+using System.Collections.Generic;
 using BlockChainMachine.Core;
 using BlockChainNode.Lib.Logging;
 using BlockChainNode.Lib.Net;
-using BlockChainNode.Lib.ScaleVote;
 using Nancy;
+using Nancy.Extensions;
 using Nancy.ModelBinding;
 using Nancy.Responses;
 using Nancy.Serialization.JsonNet;
 using Newtonsoft.Json;
-using Common = BlockChainNode.Lib.Net.Common;
+using Newtonsoft.Json.Linq;
 
 namespace BlockChainNode.Lib.Modules
 {
@@ -16,46 +17,38 @@ namespace BlockChainNode.Lib.Modules
     {
         public static readonly BlockChain Machine = new BlockChain();
 
-        private static readonly JsonNetSerializer Serializer =
-            new JsonNetSerializer(new JsonSerializer {TypeNameHandling = TypeNameHandling.All});
+        private static readonly JsonNetSerializer Serializer = new JsonNetSerializer();
 
         public OperationModule() : base("/bc")
         {
-            Get["/lastblock"] = parameters => GetLastBlock();
-            Get["/chain"] = parameters => GetChain();
-            Post["/newvote"] = parameters => PostNewTransaction<VoteTransaction>();
+            Get["/lastblock"] = parameters => ParseRequest(GetLastBlock);
+            Get["/chain"] = parameters => ParseRequest(GetChain);
+            Post["/newvote"] = parameters => ParseRequest(PostNewTransaction);
+            Post["/newblock"] = parameters => ParseRequest(PostNewBlock);
         }
 
-        private JsonResponse GetChain()
+        private JsonResponse ParseRequest(Func<NodeResponse> func)
         {
-            Logger.Log.Info(
-                $"Запрос на {Request.Url} от {Request.UserHostAddress} на получение данных о цепочке...");
-            var nodeResponse = new NodeResponse
-            {
-                Host = Common.HostName,
-                ResponseString = $"Chain of length {Machine.Chain.Count} provided",
-                HttpCode = HttpStatusCode.OK,
-                DataRows = new Dictionary<string, string>
-                {
-                    {"Chain", JsonConvert.SerializeObject(Machine.Chain)}
-                }
-            };
+            Logger.Log.Info($"Получен {Request.Method} запрос " +
+                            $"на {Request.Url} от {Request.UserHostAddress}");
 
-            Logger.Log.Debug($"Возвращена цепочка длинной {Machine.Chain.Count}");
-            return new JsonResponse(nodeResponse, Serializer)
+            var nodeResponse = func.Invoke();
+            nodeResponse.Host = Common.HostName;
+
+            Logger.Log.Debug(nodeResponse);
+
+            if (nodeResponse.HttpCode == HttpStatusCode.Conflict)
             {
-                StatusCode = HttpStatusCode.OK,
-                ReasonPhrase = "Successful"
-            };
+                NodeBalance.RebalanceSelf();
+            }
+
+            return new JsonResponse(nodeResponse, Serializer) {StatusCode = nodeResponse.HttpCode};
         }
 
-        private JsonResponse GetLastBlock()
+        private static NodeResponse GetLastBlock()
         {
-            Logger.Log.Info(
-                $"Запрос на {Request.Url} от {Request.UserHostAddress} на получение последнего блока...");
-            var nodeResponse = new NodeResponse
+            return new NodeResponse
             {
-                Host = Common.HostName,
                 ResponseString = "Last block returned",
                 HttpCode = HttpStatusCode.OK,
                 DataRows = new Dictionary<string, string>
@@ -63,78 +56,151 @@ namespace BlockChainNode.Lib.Modules
                     {"Block", JsonConvert.SerializeObject(Machine.LastBlock)}
                 }
             };
+        }
 
-            Logger.Log.Debug($"Возвращён блок №{Machine.LastBlock.Index}");
-            return new JsonResponse(nodeResponse, Serializer)
+        private static NodeResponse GetChain()
+        {
+            return new NodeResponse
             {
-                StatusCode = HttpStatusCode.OK,
-                ReasonPhrase = "Successful"
+                ResponseString = $"Chain of length {Machine.Chain.Count} provided",
+                HttpCode = HttpStatusCode.OK,
+                DataRows = new Dictionary<string, string>
+                {
+                    {"Chain", JsonConvert.SerializeObject(Machine.Chain)}
+                }
             };
         }
 
-        private JsonResponse PostNewTransaction<T>()
-            where T : ITransaction
+        private NodeResponse PostNewTransaction()
         {
-            var nodeResponse = new NodeResponse
+            var nodeResponse = new NodeResponse {DataRows = new Dictionary<string, string>()};
+
+            Transaction transaction;
+
+            try
             {
-                Host = Common.HostName,
-                DataRows = new Dictionary<string, string>()
-            };
-
-            var transaction = this.Bind<T>();
-            var validationErrors = new List<string>();
-
-            Logger.Log.Info(
-                $"Запрос на {Request.Url} от {Request.UserHostAddress} на совершение транзакции:");
-            Logger.Log.Debug($"Data: {transaction.Data}\n" + $"UserHash: {transaction.UserHash}\n" +
-                             $"Signature: {transaction.Signature}");
-
-            if (!transaction.HasValidData)
+                transaction = this.Bind<Transaction>();
+            }
+            catch (ModelBindingException)
             {
-                validationErrors.Add("Некорректные данные транзакции!");
+                nodeResponse.HttpCode = HttpStatusCode.BadRequest;
+                nodeResponse.ResponseString = "Не удалось получить данные модели из запроса!";
+                return nodeResponse;
             }
 
+            var validationErrors = new List<string>();
             if (string.IsNullOrEmpty(transaction.UserHash))
             {
                 validationErrors.Add("Не передан хэш пользователя!");
             }
 
-            if (transaction.Signature == null)
+            if (transaction.Signature is null)
             {
                 validationErrors.Add("Не передана подпись!");
             }
 
+            if (transaction.Data is null)
+            {
+                validationErrors.Add("Не переданы данные!");
+            }
+
+            /*
+            if (!transaction.Valid)
+            {
+                validationErrors.Add("Подпись не совпадает с переданным ключом!");
+            }
+            */
+
             if (validationErrors.Count != 0)
             {
-                Logger.Log.Error($"Провести транзакцию не удалось!:\n" +
+                Logger.Log.Error("Провести транзакцию не удалось!:\n" +
                                  $"{string.Join("\r\n", validationErrors)}");
 
                 nodeResponse.HttpCode = HttpStatusCode.BadRequest;
                 nodeResponse.ResponseString = string.Join("\r\n", validationErrors);
 
-                return new JsonResponse(nodeResponse, Serializer)
-                {
-                    StatusCode = HttpStatusCode.BadRequest,
-                    ReasonPhrase = "Errors found"
-                };
+                return nodeResponse;
             }
 
-            // TODO Correct sync of transactions
             Machine.AddNewTransaction(transaction);
             if (!Machine.Pending)
             {
-                NodeBalance.PerformOnAllNodes(NodeBalance.SyncNode);
+                NodeBalance.BroadcastNewBlock();
             }
 
             nodeResponse.HttpCode = HttpStatusCode.OK;
             nodeResponse.ResponseString = "Added new transaction";
 
-            Logger.Log.Info("Транзакция проведена успешно");
-            return new JsonResponse(nodeResponse, Serializer)
+            return nodeResponse;
+        }
+
+        private NodeResponse PostNewBlock()
+        {
+            var nodeResponse = new NodeResponse {DataRows = new Dictionary<string, string>()};
+
+            var jsonString = Request.Body.AsString();
+            JObject jsonObject;
+            try
             {
-                StatusCode = HttpStatusCode.OK,
-                ReasonPhrase = "Successful"
-            };
+                jsonObject = JObject.Parse(jsonString);
+            }
+            catch (JsonReaderException)
+            {
+                nodeResponse.HttpCode = HttpStatusCode.BadRequest;
+                nodeResponse.ResponseString = "Missing parameters";
+
+                return nodeResponse;
+            }
+
+            var block = JsonConvert.DeserializeObject<Block>((string) jsonObject["Block"]);
+
+            var validationErrors = new List<string>();
+
+            if (block.Transactions.Count == 0)
+            {
+                validationErrors.Add("Нет транзакций!");
+            }
+
+            if (string.IsNullOrEmpty(block.TimeStamp))
+            {
+                validationErrors.Add("Не передан таймштамп!");
+            }
+
+            if (string.IsNullOrEmpty(block.PreviousHash))
+            {
+                validationErrors.Add("Не передан хэш блока!");
+            }
+
+            // !block.Valid || 
+            if (Machine.LastBlock.Hash != block.PreviousHash)
+            {
+                validationErrors.Add("Некорректный блок!");
+            }
+
+            if (validationErrors.Count != 0)
+            {
+                Logger.Log.Error("Добавить блок не удалось!:\n" +
+                                 $"{string.Join("\r\n", validationErrors)}");
+
+                nodeResponse.HttpCode = HttpStatusCode.BadRequest;
+                nodeResponse.ResponseString = string.Join("\r\n", validationErrors);
+
+                return nodeResponse;
+            }
+
+            var success = Machine.TryAddBlock(block);
+            if (!success)
+            {
+                nodeResponse.HttpCode = HttpStatusCode.Conflict;
+                nodeResponse.ResponseString = "Блок отклонен";
+            }
+            else
+            {
+                nodeResponse.HttpCode = HttpStatusCode.OK;
+                nodeResponse.ResponseString = "Блок принят";
+            }
+
+            return nodeResponse;
         }
     }
 }
