@@ -51,8 +51,7 @@ namespace BlockChainMachine.Core
 
         public bool TryAddBlock(Block block)
         {
-            // IF !block.Valid
-            if (block.PreviousHash != LastBlock.Hash ||
+            if (!block.Valid || block.PreviousHash != LastBlock.Hash ||
                 block.Index != LastBlock.Index + 1)
             {
                 return false;
@@ -71,8 +70,7 @@ namespace BlockChainMachine.Core
 
             for (var i = 1; i < chain.Count(); i++)
             {
-                // !chain[i].Valid || 
-                if (chain[i].PreviousHash != chain[i - 1].Hash ||
+                if (!chain[i].Valid || chain[i].PreviousHash != chain[i - 1].Hash ||
                     chain[i].Index != i + 1)
                 {
                     return;

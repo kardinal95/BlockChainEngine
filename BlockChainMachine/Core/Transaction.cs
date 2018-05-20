@@ -12,7 +12,8 @@ namespace BlockChainMachine.Core
         public string UserHash { get; set; }
         public byte[] Data { get; set; }
         public byte[] Signature { get; set; }
-        private RSAParameters Key { get; set; }
+        // ReSharper disable once MemberCanBePrivate.Global
+        public RSAParameters Key { get; set; }
         public bool Valid => Validate();
 
         private bool Validate()

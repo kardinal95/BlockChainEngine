@@ -104,12 +104,10 @@ namespace BlockChainNode.Lib.Modules
                 validationErrors.Add("Не переданы данные!");
             }
 
-            /*
             if (!transaction.Valid)
             {
                 validationErrors.Add("Подпись не совпадает с переданным ключом!");
             }
-            */
 
             if (validationErrors.Count != 0)
             {
@@ -171,8 +169,7 @@ namespace BlockChainNode.Lib.Modules
                 validationErrors.Add("Не передан хэш блока!");
             }
 
-            // !block.Valid || 
-            if (Machine.LastBlock.Hash != block.PreviousHash)
+            if (!block.Valid || Machine.LastBlock.Hash != block.PreviousHash)
             {
                 validationErrors.Add("Некорректный блок!");
             }
