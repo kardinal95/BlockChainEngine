@@ -104,12 +104,10 @@ namespace BlockChainNode.Lib.Modules
                 validationErrors.Add("Не переданы данные!");
             }
 
-            /*
             if (!transaction.Valid)
             {
                 validationErrors.Add("Подпись не совпадает с переданным ключом!");
             }
-            */
 
             if (validationErrors.Count != 0)
             {
