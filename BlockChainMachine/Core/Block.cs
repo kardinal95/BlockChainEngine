@@ -63,7 +63,7 @@ namespace BlockChainMachine.Core
         public void GetObjectData(SerializationInfo info, StreamingContext context)
         {
             info.AddValue("Index", Index);
-            info.AddValue("Trans", Transactions);
+            info.AddValue("Transactions", Transactions);
             info.AddValue("PreviousHash", PreviousHash);
             info.AddValue("TimeStamp", TimeStamp);
         }
@@ -72,7 +72,7 @@ namespace BlockChainMachine.Core
         public Block(SerializationInfo info, StreamingContext context)
         {
             Index = (int) info.GetValue("Index", typeof(int));
-            Transactions = (List<Transaction>) info.GetValue("Trans", typeof(List<Transaction>));
+            Transactions = (List<Transaction>) info.GetValue("Transactions", typeof(List<Transaction>));
             PreviousHash = (string) info.GetValue("PreviousHash", typeof(string));
             TimeStamp = (string) info.GetValue("TimeStamp", typeof(string));
         }
